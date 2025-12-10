@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import './App.css';
-import React, { createContext } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
 import { Routes, Route } from "react-router-dom";
 import { useReducer, useRef } from 'react';
 
@@ -10,56 +10,73 @@ import Diary from './pages/Diary';
 import Edit from './pages/Edit';
 import Notfound from './pages/Notfound';
 
-const mockData = [
-  {
-    id: 1,
-    createdDate: new Date("2025-12-03").getTime(),
-    emotionId: 5,
-    content: "이번 달 나쁜 일기"
-  }, 
-  {
-    id: 2,
-    createdDate: new Date("2025-12-06").getTime(),
-    emotionId: 2,
-    content: "이번 달 좋은 일기"
-  },   
-  {
-    id: 3,
-    createdDate: new Date("2025-11-05").getTime(),
-    emotionId: 3,
-    content: "지난달 적당한 일기"
-  },   
-  {
-    id: 4,
-    createdDate: new Date("2026-01-05").getTime(),
-    emotionId: 4,
-    content: "다음달 일기"
-  },   
-  {
-    id: 5,
-    createdDate: new Date("2026-01-06").getTime(),
-    emotionId: 1,
-    content: "다음달 좋은 일기"
-  },   
-]
 function reducer(state, action){
+
+  let nextState;
+  
   switch(action.type) {
-    case "CREATE" :
-      return [action.data, ...state];
-    case "UPDATE" :
-      return state.map((item)=>String(item.id) === String(action.data.id)? action.data : item );
-    case "DELETE" :
-      return state.filter((item)=>String(item.id) !== String(action.id));
+    case "INIT": {
+      return action.data;
+    }
+    case "CREATE" : {
+        nextState = [action.data, ...state]; 
+        break;
+      }
+    case "UPDATE" : {
+       nextState = state.map((item)=>String(item.id) === String(action.data.id)? action.data : item );
+       break;
+      }
+    case "DELETE" : {
+        nextState = state.filter((item)=>String(item.id) !== String(action.id));
+        break;
+      }
+    default : 
+      return state;      
+    }
+
+    localStorage.setItem("diary", JSON.stringify(nextState));
+
   }
-}
+
 
 export const DiaryStateContext = createContext();
 export const DiaryDispatchContext = createContext();
 
 function App() {
-  const [diaryData, dispatch] = useReducer(reducer, mockData);
-  const idRef = useRef(6);
-  // 새로운 일기 추가
+  const [isLoading, setIsLoading] = useState(true);
+  const [diaryData, dispatch] = useReducer(reducer, []);
+  const idRef = useRef(0);
+  
+  useEffect(() => {
+    const storedData = localStorage.getItem("diary");
+    if(!storedData) {
+        setIsLoading(false);
+        return;
+    }
+    const parsedData = JSON.parse(storedData);
+
+    if(!Array.isArray(parsedData)) {
+      return;
+    }
+
+    let maxId = 0;
+    parsedData.forEach((item) => {
+      if(Number(item.id) > maxId) {
+        maxId = Number(item.id);
+      }
+    });
+
+    idRef.current = maxId + 1;
+
+    dispatch({
+      type: "INIT",
+      data: parsedData,
+    });
+    setIsLoading(false);
+  }, []);
+
+
+// 새로운 일기 추가
 
   const onCreate = (createdDate, emotionId, content) => {
     dispatch({
@@ -93,6 +110,10 @@ function App() {
       type: "DELETE",
       id,
     })
+  }
+
+  if(isLoading) {
+    return (<div>데이터 로딩 중입니다...</div>);
   }
 
   return (
